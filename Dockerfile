@@ -11,14 +11,14 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy code
-COPY . .
+# Copy necessary source files
+COPY src/ ./src/
+COPY run.py .
+COPY LICENSE .
 
 # Set Python path
-ENV PYTHONPATH="${PYTHONPATH}:/app:/app/src"
-
-# No default project directory mount point needed, user will explicitly set project path
+ENV PYTHONPATH="/app:/app/src"
+ENV PYTHONUNBUFFERED=1
 
 # Run MCP tool
-# MCP server uses stdio mode by default
-ENTRYPOINT ["python", "-m", "code_index_mcp.server"]
+ENTRYPOINT ["python", "/app/run.py"]
