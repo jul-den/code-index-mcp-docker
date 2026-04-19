@@ -1,20 +1,23 @@
-# Code Index MCP
+# Code Index MCP – Docker‑ready fork
 
 <div align="center">
 
 [![MCP Server](https://img.shields.io/badge/MCP-Server-blue)](https://modelcontextprotocol.io)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-green)](https://www.python.org/)
 [![License](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
+[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED)](https://www.docker.com/)
 
-**Intelligent code indexing and analysis for Large Language Models**
-
-Transform how AI understands your codebase with advanced search, analysis, and navigation capabilities.
+**Intelligent code indexing and analysis for Large Language Models**  
+*– now with seamless Docker deployment –*
 
 </div>
 
-<a href="https://glama.ai/mcp/servers/@johnhuang316/code-index-mcp">
-  <img width="380" height="200" src="https://glama.ai/mcp/servers/@johnhuang316/code-index-mcp/badge" alt="code-index-mcp MCP server" />
-</a>
+> **📦 This is a Docker‑focused fork** of the excellent [code-index-mcp](https://github.com/johnhuang316/code-index-mcp) by [johnhuang316](https://github.com/johnhuang316).  
+> It updates `run.py` (auto‑detects container environment), `docker-compose.yml` files, and this guide.  
+> **No original functionality is changed** – the server works exactly the same when run outside Docker.  
+> If you do **not** need containerisation, please use the [original project](https://github.com/johnhuang316/code-index-mcp) – it is the maintained source and supports direct `pip`/`uvx` installation.
+
+---
 
 ## Overview
 
@@ -22,85 +25,192 @@ Code Index MCP is a [Model Context Protocol](https://modelcontextprotocol.io) se
 
 **Perfect for:** Code review, refactoring, documentation generation, debugging assistance, and architectural analysis.
 
-## Quick Start
+## Quick Start (Docker Deployment)
 
-### 🚀 **Recommended Setup (Most Users)**
+This fork makes it easy to run the Code Index MCP server inside a container, with HTTP transports and support for `stdio` via `docker exec`.
 
-The easiest way to get started with any MCP-compatible application:
+### Why this fork?
 
-**Prerequisites:** Python 3.10+ and [uv](https://github.com/astral-sh/uv)
+- **Auto‑detects Docker** – inside a container it binds to `0.0.0.0` (HTTP transports) so the server is reachable from the host.
+- **Supports environment variables (`MCP_*`)** – all CLI options can be set via variables for `docker-compose.yml`.
+- **Provides `docker-compose.yml`** for quick setup with `streamable-http` (recommended) or `sse`.
+- **Supports `stdio` transport** using a persistent container (`sleep infinity`) and `docker exec`.
+- **No changes to core logic** – the server behaves identically to the original when run outside Docker.
 
-1. **Add to your MCP configuration** (e.g., `claude_desktop_config.json` or `~/.claude.json`):
-   ```json
-   {
-     "mcpServers": {
-       "code-index": {
-         "command": "uvx",
-         "args": ["code-index-mcp"]
-       }
-     }
-   }
-   ```
-   > Optional: append `--project-path /absolute/path/to/repo` to the `args` array so the server
-   > initializes with that repository automatically (equivalent to calling `set_project_path`
-   > after startup).
+### 1. Clone and run
 
-2. **Restart your application** – `uvx` automatically handles installation and execution
-
-3. **Start using** (give these prompts to your AI assistant):
-   ```
-   Set the project path to /Users/dev/my-react-app
-   Find all TypeScript files in this project  
-   Search for "authentication" functions
-   Analyze the main App.tsx file
-   ```
-   *If you launch with `--project-path`, you can skip the first command above - the server already
-   knows the project location.*
-
-### Codex CLI Configuration
-
-If you are using Anthropic's Codex CLI, add the server to `~/.codex/config.toml`.
-On Windows the file lives at `C:\Users\<you>\.codex\config.toml`:
-
-```toml
-[mcp_servers.code-index]
-type = "stdio"
-command = "uvx"
-args = ["code-index-mcp"]
+```bash
+git clone https://github.com/jul-den/code-index-mcp-docker.git
+cd code-index-mcp-docker
 ```
-> You can append `--project-path C:/absolute/path/to/repo` to the `args` list to set the project
-> automatically on startup (same effect as running the `set_project_path` tool).
 
-On Windows, `uvx` needs the standard profile directories to be present.
-Keep the environment override in the same block so the MCP starts reliably:
+### 2. Run with HTTP transport (recommended for network access)
 
-```toml
-env = {
-  HOME = "C:\\Users\\<you>",
-  APPDATA = "C:\\Users\\<you>\\AppData\\Roaming",
-  LOCALAPPDATA = "C:\\Users\\<you>\\AppData\\Local",
-  SystemRoot = "C:\\Windows"
+Use `streamable-http` (or `sse`) when your MCP client supports HTTP endpoints (e.g., LM Studio, Claude Desktop with network support).
+
+**`docker-compose.yml` (included):**
+
+```yaml
+services:
+  code-index-mcp-docker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: code-index-mcp-docker
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./codefolder:/monitorfolder:ro
+      - ./index_data:/data/index
+    environment:
+      MCP_PROJECT_PATH: /monitorfolder
+      MCP_TRANSPORT: streamable-http
+      MCP_PORT: 8000
+      MCP_MOUNT_PATH: /mcp
+      MCP_INDEXER_PATH: /data/index
+      # MCP_TOOL_PREFIX: "docker:"
+      FILE_WATCHER_ENABLED: "true"
+    restart: unless-stopped
+```
+
+**Optionally, pull a pre‑built image (once published):**
+
+If you prefer using a pre‑built image, replace the `build:` section with `image: ghcr.io/jul-den/code-index-mcp-docker:latest`.
+
+```bash
+  docker pull ghcr.io/jul-den/code-index-mcp-docker:latest
+  ```
+
+`docker-compose.yml`:
+```yaml
+>services:
+  code-index-mcp-docker:
+    image: ghcr.io/jul-den/code-index-mcp-docker:latest
+    container_name: code-index-mcp-docker
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./codefolder:/monitorfolder:ro
+      - ./index_data:/data/index
+    environment:
+      MCP_PROJECT_PATH: /monitorfolder
+      MCP_TRANSPORT: streamable-http
+      MCP_PORT: 8000
+      MCP_MOUNT_PATH: /mcp
+      MCP_INDEXER_PATH: /data/index
+      # MCP_TOOL_PREFIX: "docker:"
+      FILE_WATCHER_ENABLED: "true"
+    restart: unless-stopped
+```
+
+
+
+Start the container:
+
+```bash
+docker-compose up -d
+```
+
+In your MCP client, set the URL to:
+
+- `http://127.0.0.1:8000/mcp` (for `streamable-http`)
+- `http://127.0.0.1:8000/mcp/sse` (for `sse`)
+
+**Then configure your MCP client** (e.g., `mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "code-index-mcp-docker": {
+      "url": "http://127.0.0.1:8000/mcp",
+      "headers": {
+        "Accept": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive"
+      },
+      "timeout": 30000
+    }
+  }
 }
 ```
 
-Linux and macOS already expose the required XDG paths and `HOME`, so you can usually omit the `env`
-table there.
-Add overrides only if you run the CLI inside a restricted container.
+### 3. `stdio` transport (alternative, not recommended for Docker)
 
-### FastMCP & Discovery Manifests
+> **⚠️ Note:** For Docker deployments, HTTP transports (`streamable-http` or `sse`) are **strongly recommended**.  
+> Using `stdio` via `docker exec` adds per‑call overhead (startup latency).  
+> Only use this method if your MCP client does **not** support HTTP endpoints.
 
-- Run `fastmcp run fastmcp.json` to launch the server via [FastMCP](https://fastmcp.wiki/) with
-  the correct source entrypoint and dependency metadata. Pass `--project-path` (or call the
-  `set_project_path` tool after startup) so the index boots against the right repository.
-- Serve or copy `.well-known/mcp.json` to share a standards-compliant MCP manifest. Clients that
-  support the `.well-known` convention (e.g., Claude Desktop, Codex CLI) can import this file
-  directly instead of crafting configs manually.
-- Publish `.well-known/mcp.llmfeed.json` when you want to expose the richer LLM Feed metadata.
-  It references the same `code-index` server definition plus documentation/source links, which
-  helps registries present descriptions, tags, and capabilities automatically.
+**If you still need `stdio`**, follow these steps:
 
-When sharing the manifests, remind consumers to supply `--project-path` (or to call
-`set_project_path`) so the server indexes the intended repository.
+  1. **Start a persistent idle container** (keeps the container alive):
+```bash
+docker-compose -f docker-compose.stdio.yml up -d
+```
+
+Where `docker-compose.stdio.yml` contains:
+```yaml
+services:
+  code-index-mcp-docker-stdio:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: code-index-mcp-docker-stdio
+    volumes:
+      - ./codefolder:/monitorfolder:ro
+      - ./index_data:/data/index
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["sleep infinity"]
+    restart: unless-stopped
+```
+  
+  2. **Configure your MCP client** (e.g., `mcp.json`):
+    ```json
+    {
+     "mcpServers": {
+       "code-index-mcp-docker-stdio": {
+         "command": "docker",
+         "args": [
+           "exec", "-i", "code-index-mcp-docker-stdio",
+           "python", "/app/run.py",
+           "--transport", "stdio",
+           "--project-path", "/monitorfolder",
+           "--indexer-path", "/data/index",
+           "--tool-prefix", "io:"
+         ]
+       }
+     }
+    }
+    ```
+
+> The container stays alive (`sleep infinity`); each MCP call launches a fresh `run.py` process via `docker exec`.  
+> For one‑shot containers (slower, not recommended), use `docker run --rm ...` instead of `docker exec`.
+
+
+### 4. Environment variables vs. command line arguments
+
+The entrypoint `run.py` accepts both:
+- **Environment variables** (prefixed with `MCP_`) – convenient for `docker-compose.yml`.
+- **Direct command line arguments** – as shown in the `stdio` example.
+
+| Variable               | CLI argument          | Description                                      |
+|------------------------|-----------------------|--------------------------------------------------|
+| `MCP_PROJECT_PATH`     | `--project-path`      | Path to the project to index (inside container)  |
+| `MCP_TRANSPORT`        | `--transport`         | `streamable-http`, `sse`, or `stdio`             |
+| `MCP_PORT`             | `--port`              | Port for HTTP transports                         |
+| `MCP_MOUNT_PATH`       | `--mount-path`        | URL prefix for SSE/HTTP                          |
+| `MCP_INDEXER_PATH`     | `--indexer-path`      | Custom index storage directory                   |
+| `MCP_TOOL_PREFIX`      | `--tool-prefix`       | Prefix for tool names                            |
+
+### 5. Viewing logs
+
+All logs (INFO and above) are sent to `stdout` inside the container. View them with:
+
+```bash
+docker logs code-index-mcp-docker
+docker logs code-index-mcp-docker-stdio
+```
+
+---
 
 ## Typical Use Cases
 
@@ -215,57 +325,6 @@ All other programming languages use the **FallbackParsingStrategy** which provid
 
 - Markdown (`.md`, `.mdx`)
 - Configuration (`.json`, `.xml`, `.yml`, `.yaml`, `.properties`)
-
-</details>
-
-### 🛠️ **Development Setup**
-
-For contributing or local development:
-
-1. **Clone and install:**
-   ```bash
-   git clone https://github.com/johnhuang316/code-index-mcp.git
-   cd code-index-mcp
-   uv sync
-   ```
-
-2. **Configure for local development:**
-   ```json
-   {
-     "mcpServers": {
-       "code-index": {
-         "command": "uv",
-         "args": ["run", "code-index-mcp"]
-       }
-     }
-   }
-   ```
-
-3. **Debug with MCP Inspector:**
-   ```bash
-   npx @modelcontextprotocol/inspector uv run code-index-mcp
-   ```
-
-<details>
-<summary><strong>Alternative: Manual pip Installation</strong></summary>
-
-If you prefer traditional pip management:
-
-```bash
-pip install code-index-mcp
-```
-
-Then configure:
-```json
-{
-  "mcpServers": {
-    "code-index": {
-      "command": "code-index-mcp",
-      "args": []
-    }
-  }
-}
-```
 
 </details>
 
@@ -398,29 +457,21 @@ The default FSEvents observer works well for most projects. If you experience is
 
 Note: Kqueue opens one file descriptor per watched file. For large projects using kqueue, you may need to increase the limit: `ulimit -n 10240`
 
-## Development & Contributing
+---
 
-### 🔧 **Building from Source**
-```bash
-git clone https://github.com/johnhuang316/code-index-mcp.git
-cd code-index-mcp
-uv sync
-uv run code-index-mcp
-```
+## License & Attribution
 
-### 🐛 **Debugging**
-```bash
-npx @modelcontextprotocol/inspector uvx code-index-mcp
-```
+This project is a **fork** of [code-index-mcp](https://github.com/johnhuang316/code-index-mcp) by **johnhuang316** and is released under the same **MIT License**.  
+All original copyright and license notices apply. The Docker‑related additions ( `run.py`, `docker-compose.yml`) are also provided under the MIT License.
 
-### 🤝 **Contributing**
-Contributions are welcome! Please feel free to submit a Pull Request.
+**Maintainer of this fork:** [jul-den](https://github.com/jul-den)  
+**Upstream project:** [johnhuang316/code-index-mcp](https://github.com/johnhuang316/code-index-mcp)
+
+If you find this fork useful, please consider giving a ⭐ to the **original repository** – the author did the hard work!
 
 ---
 
-### 📜 **License**
-[MIT License](LICENSE)
+## Contributing to the fork
 
-### 🌐 **Translations**
-- [繁體中文](README_zh.md)
-- [日本語](README_ja.md)
+If you want to improve the Docker experience, feel free to open issues or pull requests in this fork.  
+For changes to the core MCP functionality, please contribute directly to the [upstream project](https://github.com/johnhuang316/code-index-mcp).
