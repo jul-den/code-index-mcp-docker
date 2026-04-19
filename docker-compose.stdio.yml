@@ -1,0 +1,10 @@
+services:
+  code-index-mcp-docker:
+    image: code-index-mcp-docker
+    container_name: code-index-mcp-docker
+    volumes:
+      - ./codefolder:/monitorfolder:ro
+      - ./index_data:/data/index
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["sleep infinity"]
+    restart: unless-stopped
