@@ -1,0 +1,19 @@
+services:
+  code-index-mcp-docker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: code-index-mcp-docker
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./codefolder:/monitorfolder:ro
+      - ./index_data:/data/index
+    environment:
+      MCP_PROJECT_PATH: /monitorfolder
+      MCP_TRANSPORT: streamable-http
+      MCP_PORT: 8000
+      MCP_MOUNT_PATH: /mcp
+      MCP_INDEXER_PATH: /data/index
+      FILE_WATCHER_ENABLED: "true"
+    restart: unless-stopped
