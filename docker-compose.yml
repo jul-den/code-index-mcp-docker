@@ -1,19 +1,56 @@
+# Docker Compose configuration for Code Index MCP (Docker‑ready fork)
+# See https://github.com/jul-den/code-index-mcp-docker for full documentation
 services:
   code-index-mcp-docker:
     build:
       context: .
       dockerfile: Dockerfile
+    # To use a pre‑built image instead of building locally, comment out the entire 'build:' block
+    # and uncomment the 'image:' line below.
+    # image: ghcr.io/jul-den/code-index-mcp-docker:latest
     container_name: code-index-mcp-docker
     ports:
+      # Map host port 8000 to container port 8000 (right side must match MCP_PORT)
       - "8000:8000"
+      # Example: change host port to 8084 → http://localhost:8084/mcp
+      # - "8084:8000"
     volumes:
+      # Mount your source code folder (read‑only recommended)
       - ./codefolder:/monitorfolder:ro
+      # You can mount additional folders and switch projects with `set_project_path` at runtime
+      # - ./codefolder2:/other_monitorfolder:ro
+      # Persistent storage for indexes (bind mount)
       - ./index_data:/data/index
+      # For a named Docker volume, comment the line above and uncomment the 'volumes:' section at the bottom
+      # - index_data:/data/index
     environment:
-      MCP_PROJECT_PATH: /monitorfolder
-      MCP_TRANSPORT: streamable-http
-      MCP_PORT: 8000
-      MCP_MOUNT_PATH: /mcp
-      MCP_INDEXER_PATH: /data/index
-      FILE_WATCHER_ENABLED: "true"
+      # Force Python to flush logs immediately (no buffering)
+      - PYTHONUNBUFFERED=1
+
+      # ----- Required  -----
+      # Transport protocol: 'streamable-http' (recommended), 'sse', or 'stdio'
+      - MCP_TRANSPORT=streamable-http
+      # URL prefix for HTTP endpoints (e.g., '/mcp' → http://localhost:8000/mcp)
+      - MCP_MOUNT_PATH=/mcp
+      # Directory for persistent index storage (recommended be a mounted or named Docker volume)
+      - MCP_INDEXER_PATH=/data/index
+
+      # ----- Optional -----
+      # Default project path inside the container (can be changed later via `set_project_path`)
+      - MCP_PROJECT_PATH=/monitorfolder
+      # Port inside the container (must match the right side of 'ports' mapping)
+      # Default: 8000
+      # - MCP_PORT=8000
+      # Prefix for all tool names (e.g., 'docker:' -> 'docker:search_code_advanced')
+      # - MCP_TOOL_PREFIX=docker:
+      # Enable automatic file watching (rebuilds index on file changes)
+      # Default: true
+      # - FILE_WATCHER_ENABLED=true
+      # Additional exclude patterns for file watcher (comma‑separated)
+      # - ADDITIONAL_EXCLUDE_PATTERNS=__pycache__,node_modules,.git
     restart: unless-stopped
+
+# Optional: define a named Docker volume for persistent index storage
+# Uncomment the 'volumes:' section below and change the volume mount in 'services' to `- index_data:/data/index`
+# volumes:
+#   index_data:
