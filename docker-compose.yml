@@ -1,13 +1,8 @@
-# Docker Compose configuration for Code Index MCP (Docker‑ready fork)
+# Docker Compose configuration for Code Index MCP (Docker-ready fork)
 # See https://github.com/jul-den/code-index-mcp-docker for full documentation
 services:
   code-index-mcp-docker:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    # To use a pre‑built image instead of building locally, comment out the entire 'build:' block
-    # and uncomment the 'image:' line below.
-    # image: ghcr.io/jul-den/code-index-mcp-docker:latest
+    image: ghcr.io/jul-den/code-index-mcp-docker:latest
     container_name: code-index-mcp-docker
     ports:
       # Map host port 8000 to container port 8000 (right side must match MCP_PORT)
@@ -15,7 +10,7 @@ services:
       # Example: change host port to 8084 → http://localhost:8084/mcp
       # - "8084:8000"
     volumes:
-      # Mount your source code folder (read‑only recommended)
+      # Mount your source code folder (read-only recommended)
       - ./codefolder:/monitorfolder:ro
       # You can mount additional folders and switch projects with `set_project_path` at runtime
       # - ./codefolder2:/other_monitorfolder:ro
@@ -46,7 +41,7 @@ services:
       # Enable automatic file watching (rebuilds index on file changes)
       # Default: true
       # - FILE_WATCHER_ENABLED=true
-      # Additional exclude patterns for file watcher (comma‑separated)
+      # Additional exclude patterns for file watcher (comma-separated)
       # - ADDITIONAL_EXCLUDE_PATTERNS=__pycache__,node_modules,.git
     restart: unless-stopped
 
