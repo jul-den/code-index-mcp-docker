@@ -25,17 +25,59 @@ Code Index MCP is a [Model Context Protocol](https://modelcontextprotocol.io) se
 
 **Perfect for:** Code review, refactoring, documentation generation, debugging assistance, and architectural analysis.
 
-## Quick Start (Docker Deployment)
-
 This fork makes it easy to run the Code Index MCP server inside a container, with HTTP transports and support for `stdio` via `docker exec`.
 
 ### Why this fork?
 
 - **Auto‑detects Docker** – inside a container it binds to `0.0.0.0` (HTTP transports) so the server is reachable from the host.
-- **Supports environment variables (`MCP_*`)** – all CLI options can be set via variables for `docker-compose.yml`.
+- **Supports environment variables (`MCP_*`)** – all CLI options can be set via variables in `docker-compose.yml`.
 - **Provides `docker-compose.yml`** for quick setup with `streamable-http` (recommended) or `sse`.
 - **Supports `stdio` transport** using a persistent container (`sleep infinity`) and `docker exec`.
 - **No changes to core logic** – the server behaves identically to the original when run outside Docker.
+
+## Quick Start: use pre-built image (recommended for most users)
+
+
+1. **Create `docker-compose.yml`** with the content below, or download from the repository and save in an empty directory.
+2. **Adjust volumes** – mount your code folder and a persistent directory for indexes.
+3. **Run**:
+   Make sure you are in the directory containing `docker-compose.yml`
+   ```bash
+   docker-compose up -d
+   ```
+
+<details>
+<summary>📄 Minimal `docker-compose.yml` (click to expand)</summary>
+
+```yaml
+services:
+  code-index-mcp-docker:
+    image: ghcr.io/jul-den/code-index-mcp-docker:latest
+    container_name: code-index-mcp-docker
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./codefolder:/monitorfolder:ro
+      - ./index_data:/data/index
+    environment:
+      - PYTHONUNBUFFERED=1
+      - MCP_TRANSPORT=streamable-http
+      - MCP_MOUNT_PATH=/mcp
+      - MCP_INDEXER_PATH=/data/index
+      - MCP_PROJECT_PATH=/monitorfolder
+    restart: unless-stopped
+```
+
+</details>
+
+> **One-liner without Compose:**
+> ```bash
+> docker run -d --name code-index-mcp -p 8000:8000 -v ./codefolder:/monitorfolder:ro -v ./index_data:/data/index -e MCP_TRANSPORT=streamable-http -e MCP_MOUNT_PATH=/mcp -e MCP_INDEXER_PATH=/data/index -e MCP_PROJECT_PATH=/monitorfolder -e PYTHONUNBUFFERED=1 ghcr.io/jul-den/code-index-mcp-docker:latest
+> ```
+
+Then configure your MCP client as shown in the example below.
+
+## Manual build (from source)
 
 ### 1. Clone and run
 
@@ -48,7 +90,10 @@ cd code-index-mcp-docker
 
 Use `streamable-http` (or `sse`) when your MCP client supports HTTP endpoints (e.g., LM Studio, Claude Desktop with network support).
 
-**`docker-compose.yml` (included):**
+**Create `docker-compose.build.yml`** with the content below, or download from the repository and save in an empty directory.
+
+<details>
+<summary>📄 Minimal `docker-compose.build.yml` (click to expand)</summary>
 
 ```yaml
 services:
@@ -63,60 +108,33 @@ services:
       - ./codefolder:/monitorfolder:ro
       - ./index_data:/data/index
     environment:
-      MCP_PROJECT_PATH: /monitorfolder
-      MCP_TRANSPORT: streamable-http
-      MCP_PORT: 8000
-      MCP_MOUNT_PATH: /mcp
-      MCP_INDEXER_PATH: /data/index
-      # MCP_TOOL_PREFIX: "docker:"
-      FILE_WATCHER_ENABLED: "true"
+      - PYTHONUNBUFFERED=1
+      - MCP_PROJECT_PATH=/monitorfolder
+      - MCP_TRANSPORT=streamable-http
+      - MCP_MOUNT_PATH=/mcp
+      - MCP_INDEXER_PATH=/data/index
+      # - MCP_TOOL_PREFIX="docker:"
     restart: unless-stopped
 ```
-
-**Optionally, pull a pre‑built image (once published):**
-
-If you prefer using a pre‑built image, replace the `build:` section with `image: ghcr.io/jul-den/code-index-mcp-docker:latest`.
-
-```bash
-  docker pull ghcr.io/jul-den/code-index-mcp-docker:latest
-  ```
-
-`docker-compose.yml`:
-```yaml
->services:
-  code-index-mcp-docker:
-    image: ghcr.io/jul-den/code-index-mcp-docker:latest
-    container_name: code-index-mcp-docker
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./codefolder:/monitorfolder:ro
-      - ./index_data:/data/index
-    environment:
-      MCP_PROJECT_PATH: /monitorfolder
-      MCP_TRANSPORT: streamable-http
-      MCP_PORT: 8000
-      MCP_MOUNT_PATH: /mcp
-      MCP_INDEXER_PATH: /data/index
-      # MCP_TOOL_PREFIX: "docker:"
-      FILE_WATCHER_ENABLED: "true"
-    restart: unless-stopped
-```
-
-
-
+</details>
+  
 Start the container:
+Make sure you are in the directory containing `docker-compose.build.yml`
 
 ```bash
-docker-compose up -d
+docker-compose -f docker-compose.build.yml up -d
 ```
+
+Then configure your MCP client as shown in the example below.
+
+
+## Example MCP client configuration (e.g., `mcp.json`)
 
 In your MCP client, set the URL to:
 
 - `http://127.0.0.1:8000/mcp` (for `streamable-http`)
 - `http://127.0.0.1:8000/mcp/sse` (for `sse`)
 
-**Then configure your MCP client** (e.g., `mcp.json`):
 
 ```json
 {
@@ -134,7 +152,7 @@ In your MCP client, set the URL to:
 }
 ```
 
-### 3. `stdio` transport (alternative, not recommended for Docker)
+## `stdio` transport (alternative, not recommended for Docker)
 
 > **⚠️ Note:** For Docker deployments, HTTP transports (`streamable-http` or `sse`) are **strongly recommended**.  
 > Using `stdio` via `docker exec` adds per‑call overhead (startup latency).  
@@ -142,7 +160,9 @@ In your MCP client, set the URL to:
 
 **If you still need `stdio`**, follow these steps:
 
-  1. **Start a persistent idle container** (keeps the container alive):
+  1. **Create `docker-compose.stdio.yml`** with the content below, or download from the repository and save in an empty directory.
+
+  2. **Start a persistent idle container** (keeps the container alive):
 ```bash
 docker-compose -f docker-compose.stdio.yml up -d
 ```
@@ -151,19 +171,18 @@ Where `docker-compose.stdio.yml` contains:
 ```yaml
 services:
   code-index-mcp-docker-stdio:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/jul-den/code-index-mcp-docker:latest
     container_name: code-index-mcp-docker-stdio
     volumes:
       - ./codefolder:/monitorfolder:ro
       - ./index_data:/data/index
     entrypoint: ["/bin/sh", "-c"]
     command: ["sleep infinity"]
+    environment: PYTHONUNBUFFERED=1
     restart: unless-stopped
 ```
   
-  2. **Configure your MCP client** (e.g., `mcp.json`):
+  3. **Configure your MCP client** (e.g., `mcp.json`):
     ```json
     {
      "mcpServers": {
@@ -186,7 +205,7 @@ services:
 > For one‑shot containers (slower, not recommended), use `docker run --rm ...` instead of `docker exec`.
 
 
-### 4. Environment variables vs. command line arguments
+## Environment variables vs. command line arguments
 
 The entrypoint `run.py` accepts both:
 - **Environment variables** (prefixed with `MCP_`) – convenient for `docker-compose.yml`.
@@ -201,7 +220,7 @@ The entrypoint `run.py` accepts both:
 | `MCP_INDEXER_PATH`     | `--indexer-path`      | Custom index storage directory                   |
 | `MCP_TOOL_PREFIX`      | `--tool-prefix`       | Prefix for tool names                            |
 
-### 5. Viewing logs
+## Viewing logs
 
 All logs (INFO and above) are sent to `stdout` inside the container. View them with:
 
