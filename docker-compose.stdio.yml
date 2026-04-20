@@ -1,10 +1,11 @@
 services:
-  code-index-mcp-docker:
-    image: code-index-mcp-docker
-    container_name: code-index-mcp-docker
+  code-index-mcp-docker-stdio:
+    image: ghcr.io/jul-den/code-index-mcp-docker:latest
+    container_name: code-index-mcp-docker-stdio
     volumes:
       - ./codefolder:/monitorfolder:ro
       - ./index_data:/data/index
     entrypoint: ["/bin/sh", "-c"]
     command: ["sleep infinity"]
+    environment: PYTHONUNBUFFERED=1
     restart: unless-stopped
