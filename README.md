@@ -1,4 +1,4 @@
-# Code Index MCP – Docker‑ready fork
+# Code Index MCP – Docker-ready fork
 
 <div align="center">
 
@@ -12,10 +12,20 @@
 
 </div>
 
-> **📦 This is a Docker‑focused fork** of the excellent [code-index-mcp](https://github.com/johnhuang316/code-index-mcp) by [johnhuang316](https://github.com/johnhuang316).  
-> It updates `run.py` (auto‑detects container environment), `docker-compose.yml` files, and this guide.  
+> **📦 This is a Docker-focused fork** of the excellent [code-index-mcp](https://github.com/johnhuang316/code-index-mcp) by [johnhuang316](https://github.com/johnhuang316).  
+> It updates `run.py` (auto-detects container environment), `docker-compose.yml` files, and this guide.  
 > **No original functionality is changed** – the server works exactly the same when run outside Docker.  
 > If you do **not** need containerisation, please use the [original project](https://github.com/johnhuang316/code-index-mcp) – it is the maintained source and supports direct `pip`/`uvx` installation.
+
+
+> **⚠️ Experimental branch: `feature/sandbox`**  
+> This branch adds a **powerful but potentially dangerous** tool: `process_tool_result` which executes arbitrary Python code provided by the LLM in a sandboxed environment.  
+> 
+> - **Status:** Under active development, not yet stable. APIs may change without notice.  
+> - **Security:** While the code runs in a subprocess with timeouts and limited environment, **it is NOT fully secure**. Do not use with untrusted input or in multi‑tenant setups.  
+> - **Recommendation:** For production or sensitive projects, stick to the `main` branch (HTTP transports without code execution).  
+> - **Contributions & testing:** Feedback and improvements to the sandbox are welcome. See the [Sandbox](#sandbox) section below.
+
 
 ---
 
@@ -29,11 +39,59 @@ This fork makes it easy to run the Code Index MCP server inside a container, wit
 
 ### Why this fork?
 
-- **Auto‑detects Docker** – inside a container it binds to `0.0.0.0` (HTTP transports) so the server is reachable from the host.
+- **Auto-detects Docker** – inside a container it binds to `0.0.0.0` (HTTP transports) so the server is reachable from the host.
 - **Supports environment variables (`MCP_*`)** – all CLI options can be set via variables in `docker-compose.yml`.
 - **Provides `docker-compose.yml`** for quick setup with `streamable-http` (recommended) or `sse`.
 - **Supports `stdio` transport** using a persistent container (`sleep infinity`) and `docker exec`.
 - **No changes to core logic** – the server behaves identically to the original when run outside Docker.
+
+
+---
+
+
+## 🧪 Sandbox tool (experimental)
+
+The `process_tool_result` tool allows the LLM to call any other MCP tool and then process its result with custom Python code. This is extremely flexible but also **experimental and risky**.
+
+### How it works
+
+1. LLM specifies a tool name, its arguments, and a Python function `process(data)`.
+2. The server calls the tool, captures the output.
+3. The user‑provided Python code is executed in a **subprocess** with:
+   - 10 second timeout (configurable)
+   - Minimal environment (`PATH` only)
+   - No network access (by default)
+4. Only the processed result (JSON‑serializable) is returned to the LLM.
+
+### Security limitations
+
+- The sandbox is **not hardened** against sophisticated attacks (e.g., memory exploits, kernel vulnerabilities).
+- Malicious code could attempt to consume excessive CPU/memory or bypass restrictions.
+- **Use only with trusted models and in isolated Docker containers.** Never expose this tool to untrusted users or models.
+
+### Example
+
+```json
+{
+  "tool_name": "find_files",
+  "tool_args": {"pattern": "*.py"},
+  "code": "def process(data): return sorted(set(f.split('/')[-1] for f in data))"
+}
+```
+
+This returns a sorted list of unique Python filenames instead of the full list.
+
+### Future plans
+
+- Better sandboxing via `nsjail`, `gVisor`, or WebAssembly.
+- Configurable resource limits (CPU, memory, disk).
+- Optional allowlist of safe modules/functions.
+
+**Use at your own risk.**
+
+
+---
+
 
 ## Quick Start: use pre-built image (recommended for most users)
 
@@ -51,9 +109,9 @@ This fork makes it easy to run the Code Index MCP server inside a container, wit
 
 ```yaml
 services:
-  code-index-mcp-docker:
-    image: ghcr.io/jul-den/code-index-mcp-docker:latest
-    container_name: code-index-mcp-docker
+  code-index-mcp-docker-sandbox:
+    image: ghcr.io/jul-den/code-index-mcp-docker:sandbox
+    container_name: code-index-mcp-docker-sandbox
     ports:
       - "8000:8000"
     volumes:
@@ -72,7 +130,7 @@ services:
 
 > **One-liner without Compose:**
 > ```bash
-> docker run -d --name code-index-mcp -p 8000:8000 -v ./codefolder:/monitorfolder:ro -v ./index_data:/data/index -e MCP_TRANSPORT=streamable-http -e MCP_MOUNT_PATH=/mcp -e MCP_INDEXER_PATH=/data/index -e MCP_PROJECT_PATH=/monitorfolder -e PYTHONUNBUFFERED=1 ghcr.io/jul-den/code-index-mcp-docker:latest
+> docker run -d --name code-index-mcp -p 8000:8000 -v ./codefolder:/monitorfolder:ro -v ./index_data:/data/index -e MCP_TRANSPORT=streamable-http -e MCP_MOUNT_PATH=/mcp -e MCP_INDEXER_PATH=/data/index -e MCP_PROJECT_PATH=/monitorfolder -e PYTHONUNBUFFERED=1 ghcr.io/jul-den/code-index-mcp-docker:sandbox
 > ```
 
 Then configure your MCP client as shown in the example below.
@@ -82,7 +140,7 @@ Then configure your MCP client as shown in the example below.
 ### 1. Clone and run
 
 ```bash
-git clone https://github.com/jul-den/code-index-mcp-docker.git
+git clone --branch feature/sandbox https://github.com/jul-den/code-index-mcp-docker.git
 cd code-index-mcp-docker
 ```
 
@@ -97,11 +155,11 @@ Use `streamable-http` (or `sse`) when your MCP client supports HTTP endpoints (e
 
 ```yaml
 services:
-  code-index-mcp-docker:
+  code-index-mcp-docker-sandbox:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: code-index-mcp-docker
+    container_name: code-index-mcp-docker-sandbox
     ports:
       - "8000:8000"
     volumes:
@@ -139,7 +197,7 @@ In your MCP client, set the URL to:
 ```json
 {
   "mcpServers": {
-    "code-index-mcp-docker": {
+    "code-index-mcp-docker-sandbox": {
       "url": "http://127.0.0.1:8000/mcp",
       "headers": {
         "Accept": "text/event-stream",
@@ -155,7 +213,7 @@ In your MCP client, set the URL to:
 ## `stdio` transport (alternative, not recommended for Docker)
 
 > **⚠️ Note:** For Docker deployments, HTTP transports (`streamable-http` or `sse`) are **strongly recommended**.  
-> Using `stdio` via `docker exec` adds per‑call overhead (startup latency).  
+> Using `stdio` via `docker exec` adds per-call overhead (startup latency).  
 > Only use this method if your MCP client does **not** support HTTP endpoints.
 
 **If you still need `stdio`**, follow these steps:
@@ -170,9 +228,9 @@ docker-compose -f docker-compose.stdio.yml up -d
 Where `docker-compose.stdio.yml` contains:
 ```yaml
 services:
-  code-index-mcp-docker-stdio:
-    image: ghcr.io/jul-den/code-index-mcp-docker:latest
-    container_name: code-index-mcp-docker-stdio
+  code-index-mcp-docker-stdio-sandbox:
+    image: ghcr.io/jul-den/code-index-mcp-docker:sandbox
+    container_name: code-index-mcp-docker-stdio-sandbox
     volumes:
       - ./codefolder:/monitorfolder:ro
       - ./index_data:/data/index
@@ -186,10 +244,10 @@ services:
     ```json
     {
      "mcpServers": {
-       "code-index-mcp-docker-stdio": {
+       "code-index-mcp-docker-stdio-sandbox": {
          "command": "docker",
          "args": [
-           "exec", "-i", "code-index-mcp-docker-stdio",
+           "exec", "-i", "code-index-mcp-docker-stdio-sandbox",
            "python", "/app/run.py",
            "--transport", "stdio",
            "--project-path", "/monitorfolder",
@@ -202,7 +260,7 @@ services:
     ```
 
 > The container stays alive (`sleep infinity`); each MCP call launches a fresh `run.py` process via `docker exec`.  
-> For one‑shot containers (slower, not recommended), use `docker run --rm ...` instead of `docker exec`.
+> For one-shot containers (slower, not recommended), use `docker run --rm ...` instead of `docker exec`.
 
 
 ## Environment variables vs. command line arguments
@@ -225,8 +283,8 @@ The entrypoint `run.py` accepts both:
 All logs (INFO and above) are sent to `stdout` inside the container. View them with:
 
 ```bash
-docker logs code-index-mcp-docker
-docker logs code-index-mcp-docker-stdio
+docker logs code-index-mcp-docker-sandbox
+docker logs code-index-mcp-docker-stdio-sandbox
 ```
 
 ---
@@ -481,7 +539,7 @@ Note: Kqueue opens one file descriptor per watched file. For large projects usin
 ## License & Attribution
 
 This project is a **fork** of [code-index-mcp](https://github.com/johnhuang316/code-index-mcp) by **johnhuang316** and is released under the same **MIT License**.  
-All original copyright and license notices apply. The Docker‑related additions ( `run.py`, `docker-compose.yml`) are also provided under the MIT License.
+All original copyright and license notices apply. The Docker-related additions ( `run.py`, `docker-compose.yml`) are also provided under the MIT License.
 
 **Maintainer of this fork:** [jul-den](https://github.com/jul-den)  
 **Upstream project:** [johnhuang316/code-index-mcp](https://github.com/johnhuang316/code-index-mcp)
