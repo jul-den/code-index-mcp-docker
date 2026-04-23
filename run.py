@@ -85,23 +85,6 @@ def build_argv_from_env() -> list[str]:
     return args
 
 
-def docker_main():
-    """Entry point when running inside a container with HTTP transport."""
-    logger.info("Running inside Docker container – applying 0.0.0.0 binding and env config")
-
-    # Force server to listen on all interfaces
-    mcp.settings.host = "0.0.0.0"
-    logger.info("Set mcp.settings.host = 0.0.0.0")
-
-    # Build argv from environment variables
-    argv = build_argv_from_env()
-    if argv:
-        logger.info("Using arguments from env: %s", argv)
-
-    # Call the original main with the constructed arguments
-    original_main(argv if argv else None)
-
-
 def main():
     transport = get_env("TRANSPORT", "stdio")
     inside_docker = is_docker()
