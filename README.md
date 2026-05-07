@@ -13,10 +13,10 @@
 </div>
 
 > **📦 This is a Docker‑focused fork** of the excellent [code-index-mcp](https://github.com/johnhuang316/code-index-mcp) by [johnhuang316](https://github.com/johnhuang316).  
-> It updates `run.py` (auto‑detects container environment), `docker-compose.yml` files, and this guide.  
-> **No original functionality is changed** – the server works exactly the same when run outside Docker.  
-> If you do **not** need containerisation, please use the [original project](https://github.com/johnhuang316/code-index-mcp) – it is the maintained source and supports direct `pip`/`uvx` installation.
-
+> **⚠️ Important:** The issue that required this fork was fixed by the author in version `2.17.0`.  
+> This fork is now **only for convenience** – it provides a pre‑built image for fast Docker startup without building from source.  
+> If you want the latest features and fixes, please use the [original project](https://github.com/johnhuang316/code-index-mcp) (supports `pip`/`uvx` and also runs in Docker with the official `Dockerfile`).  
+> **No original functionality is changed** – the server works exactly the same as upstream.
 ---
 
 ## Overview
@@ -27,16 +27,24 @@ Code Index MCP is a [Model Context Protocol](https://modelcontextprotocol.io) se
 
 This fork makes it easy to run the Code Index MCP server inside a container, with HTTP transports and support for `stdio` via `docker exec`.
 
-### Why this fork?
+### Why this fork? (now only for pre‑built image convenience)
 
-- **Auto‑detects Docker** – inside a container it binds to `0.0.0.0` (HTTP transports) so the server is reachable from the host.
-- **Supports environment variables (`MCP_*`)** – all CLI options can be set via variables in `docker-compose.yml`.
-- **Provides `docker-compose.yml`** for quick setup with `streamable-http` (recommended) or `sse`.
-- **Supports `stdio` transport** using a persistent container (`sleep infinity`) and `docker exec`.
-- **No changes to core logic** – the server behaves identically to the original when run outside Docker.
+> The original issue with Docker (in versions before 2.17.0) has been fixed upstream.  
+> This fork remains useful **only if** you want to skip building from source and use a ready‑to‑run image.
+
+- **Pre‑built image** on GitHub Container Registry – just `docker-compose up`
+- **No need to clone or build** – ideal for quick testing or deployment
+- **All environment variables (`MCP_*`)** supported, same as upstream
+- **`docker-compose.yml` examples** for `streamable-http`, `sse`, and `stdio` (via `sleep infinity`)
+- The core logic is **unchanged** – it’s the same as upstream `2.17.0` (the fix is included)
+
+If you prefer to build your own image or run without Docker, use the [original project](https://github.com/johnhuang316/code-index-mcp) directly.
+
 
 ## Quick Start: use pre-built image (recommended for most users)
 
+> ✅ **This is the main reason this fork exists today** – you get a pre‑built image without building from source.  
+> The original Docker issue is already fixed in version `2.17.0`, so you are not missing any fixes by using this image.
 
 1. **Create `docker-compose.yml`** with the content below, or download from the repository and save in an empty directory.
 2. **Adjust volumes** – mount your code folder and a persistent directory for indexes.
@@ -79,6 +87,9 @@ Then configure your MCP client as shown in the example below.
 
 ## Manual build (from source)
 
+> **Note:** Building from source is **not necessary** for most users – use the pre‑built image above.  
+> This section is provided for completeness, but the resulting image will be identical to running upstream’s own `Dockerfile` (they have incorporated the fix as of version 2.17.0).
+> 
 ### 1. Clone and run
 
 ```bash
@@ -485,6 +496,10 @@ All original copyright and license notices apply. The Docker‑related additions
 
 **Maintainer of this fork:** [jul-den](https://github.com/jul-den)  
 **Upstream project:** [johnhuang316/code-index-mcp](https://github.com/johnhuang316/code-index-mcp)
+
+**Status of this fork:** The original Docker issue was fixed upstream in `v2.17.0`.  
+This fork now exists **only** to provide a pre‑built image for faster startup.  
+For the latest code and official support, use the upstream repository.
 
 If you find this fork useful, please consider giving a ⭐ to the **original repository** – the author did the hard work!
 
