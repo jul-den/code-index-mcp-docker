@@ -99,9 +99,10 @@ def main():
         if argv:
             logger.info("Using arguments from env: %s", argv)
         if is_http:
-            logger.info("Aapplying 0.0.0.0 binding and env config")
+            # The original Docker issue was fixed upstream in v2.17.0.
+            # logger.info("Aapplying 0.0.0.0 binding and env config")
             # Force server to listen on all interfaces
-            mcp.settings.host = "0.0.0.0"
+            # mcp.settings.host = "0.0.0.0"
 
             import json
             import signal
