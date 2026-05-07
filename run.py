@@ -98,12 +98,9 @@ def main():
         argv = build_argv_from_env()
         if argv:
             logger.info("Using arguments from env: %s", argv)
-        if is_http:
-            logger.info("Aapplying 0.0.0.0 binding and env config")
-            # Force server to listen on all interfaces
-            mcp.settings.host = "0.0.0.0"
-        else:
-            logger.info("Running inside Docker but transport is 'stdio' – using original main()")
+
+        # Force server to listen on all interfaces
+        # The issue that required this fork was fixed by the author in version `2.17.0`.
         # Call the original main with the constructed arguments
         original_main(argv if argv else None)
     else:
