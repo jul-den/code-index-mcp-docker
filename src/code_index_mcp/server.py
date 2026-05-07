@@ -202,6 +202,7 @@ class _CLIConfig:
     project_path: str | None = None
     file_watcher_enabled: bool | None = None
     additional_exclude_patterns: list[str] | None = None
+    build_timeout: int | None = None
 
 
 class _BootstrapRequestContext:
@@ -265,6 +266,20 @@ async def indexer_lifespan(_server: FastMCP) -> AsyncIterator[CodeIndexerContext
                         "Failed to apply file watcher config from env: %s", exc
                     )
 
+            if _CLI_CONFIG.build_timeout is not None:
+                try:
+                    pre_settings.update_indexing_config(
+                        {"timeout_seconds": _CLI_CONFIG.build_timeout}
+                    )
+                    logger.info(
+                        "Deep index build timeout=%ds from env config",
+                        _CLI_CONFIG.build_timeout,
+                    )
+                except Exception as exc:  # pylint: disable=broad-except
+                    logger.error(
+                        "Failed to apply build timeout from env: %s", exc
+                    )
+
             # Set the env-configured settings on the context BEFORE
             # initialize_project so services see the correct instance.
             context.settings = pre_settings
@@ -294,6 +309,10 @@ async def indexer_lifespan(_server: FastMCP) -> AsyncIterator[CodeIndexerContext
             if _CLI_CONFIG.additional_exclude_patterns:
                 logger.warning(
                     "ADDITIONAL_EXCLUDE_PATTERNS is set but PROJECT_PATH is not; ignoring"
+                )
+            if _CLI_CONFIG.build_timeout is not None:
+                logger.warning(
+                    "CODE_INDEX_BUILD_TIMEOUT is set but PROJECT_PATH is not; ignoring"
                 )
 
         # Provide context to the server
@@ -525,6 +544,22 @@ def configure_file_watcher(
 # Removed: analyze_code, code_search, set_project prompts
 
 
+def _is_docker() -> bool:
+    """Detect if the process is running inside a Docker container.
+
+    Checks for the presence of ``/.dockerenv`` or the string ``docker``
+    inside ``/proc/1/cgroup``. Both checks are safe on non-Linux hosts
+    because they simply return ``False`` when the paths do not exist.
+    """
+    if os.path.exists("/.dockerenv"):
+        return True
+    try:
+        with open("/proc/1/cgroup", "r", encoding="utf-8") as f:
+            return "docker" in f.read()
+    except (OSError, IOError):
+        return False
+
+
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     """Parse CLI arguments for the MCP server."""
     parser = argparse.ArgumentParser(description="Code Index MCP server")
@@ -592,6 +627,21 @@ def main(argv: list[str] | None = None):
     else:
         _CLI_CONFIG.additional_exclude_patterns = None
 
+    # Read CODE_INDEX_BUILD_TIMEOUT from env (positive integer seconds).
+    build_timeout_env = os.environ.get("CODE_INDEX_BUILD_TIMEOUT", "").strip()
+    _CLI_CONFIG.build_timeout = None
+    if build_timeout_env:
+        try:
+            value = int(build_timeout_env)
+            if value < 1:
+                raise ValueError("must be >= 1")
+            _CLI_CONFIG.build_timeout = value
+        except ValueError:
+            logger.warning(
+                "Ignoring invalid CODE_INDEX_BUILD_TIMEOUT=%r (must be a positive integer)",
+                build_timeout_env,
+            )
+
     # Configure custom index root if provided
     if args.indexer_path:
         # Patch ProjectSettings class to use the custom root
@@ -654,6 +704,11 @@ def main(argv: list[str] | None = None):
 
         # Set port via settings
         mcp.settings.port = args.port
+
+        # Auto-detect Docker and bind to 0.0.0.0 so port forwarding works
+        if _is_docker():
+            mcp.settings.host = "0.0.0.0"
+            logger.info("Docker environment detected, binding to 0.0.0.0")
 
         # Get the appropriate Starlette app
         if args.transport == "sse":
